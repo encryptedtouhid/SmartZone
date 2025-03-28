@@ -159,3 +159,7 @@ The application uses WebSockets for real-time updates. The following message typ
 - Run the seed script: `python data/seed_data.py`
 - Start the server: `python app.py`
 - Open your browser to `http://localhost:8000`
+
+## Preview
+
+![Preview](img.png)
