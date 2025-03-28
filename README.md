@@ -150,62 +150,12 @@ The application uses WebSockets for real-time updates. The following message typ
 - `zone_updates`: Updates on zone demand levels and surge status
 - `request_updates`: Updates on ride requests
 
-## Extending the Project
 
-### Adding New Features
 
-1. **Machine Learning Integration**: Enhance the demand prediction model with more features and historical data analysis
-2. **User Authentication**: Add user login and role-based access
-3. **Admin Dashboard**: Create an admin interface for managing drivers and settings
-4. **Mobile App**: Develop a companion mobile app for drivers
-5. **Routing**: Implement route calculation for drivers
+## How to Run the Project
 
-### Deployment
-
-#### Heroku Deployment
-
-1. Install Heroku CLI and login:
-```bash
-npm install -g heroku
-heroku login
-```
-
-2. Create a new Heroku app:
-```bash
-heroku create smartzone-app
-```
-
-3. Add MongoDB add-on:
-```bash
-heroku addons:create mongodb:sandbox
-```
-
-4. Configure environment variables:
-```bash
-heroku config:set SECRET_KEY=your_secret_key_here
-```
-
-5. Deploy the application:
-```bash
-git push heroku main
-```
-
-#### Docker Deployment
-
-1. Build the Docker image:
-```bash
-docker build -t smartzone:latest .
-```
-
-2. Run the container:
-```bash
-docker run -p 8000:8000 --env-file .env smartzone:latest
-```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- Install dependencies: `pip install -r requirements.txt`
+- Set up MongoDB (locally or using Docker)
+- Run the seed script: `python data/seed_data.py`
+- Start the server: `python app.py`
+- Open your browser to `http://localhost:8000`
