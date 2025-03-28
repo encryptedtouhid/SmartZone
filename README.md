@@ -150,16 +150,6 @@ The application uses WebSockets for real-time updates. The following message typ
 - `zone_updates`: Updates on zone demand levels and surge status
 - `request_updates`: Updates on ride requests
 
-
-
-## How to Run the Project
-
-- Install dependencies: `pip install -r requirements.txt`
-- Set up MongoDB (locally or using Docker)
-- Run the seed script: `python data/seed_data.py`
-- Start the server: `python app.py`
-- Open your browser to `http://localhost:8000`
-
 ## Preview
 
 ![Preview](img.png)
