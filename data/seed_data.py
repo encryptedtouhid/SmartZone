@@ -154,9 +154,10 @@ class DataSeeder:
             )[0]
             driver_id = random.choice(driver_ids) if status != RideRequestStatus.PENDING else None
             estimated_fare = random.uniform(5, 30)
+            user_id = f"user_{fake.uuid4()[:8]}"
             request = RideRequest(
                 id=f"request_{i + 1}",
-                user_id=f"user_{fake.uuid4().hex[:8]}",
+                user_id=user_id,
                 pickup_location=GeoPoint(coordinates=[pickup_lon, pickup_lat]),
                 dropoff_location=GeoPoint(coordinates=[dropoff_lon, dropoff_lat]),
                 pickup_zone=pickup_zone,
