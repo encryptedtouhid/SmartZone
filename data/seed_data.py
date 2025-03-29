@@ -65,19 +65,11 @@ class DataSeeder:
 
     def init_database(self):
         """Initialize database with collections and indexes"""
-        # Create geospatial index on drivers location
         self.db[COLLECTION_DRIVERS].create_index([("location", pymongo.GEOSPHERE)])
-
-        # Create geospatial index on ride requests pickup location
         self.db[COLLECTION_RIDE_REQUESTS].create_index([("pickup_location", pymongo.GEOSPHERE)])
-
-        # Create unique index on zone_id
         self.db[COLLECTION_ZONES].create_index("zone_id", unique=True)
-
-        # Create time-based indexes
         self.db[COLLECTION_RIDE_REQUESTS].create_index("created_at")
         self.db[COLLECTION_SURGE_HISTORY].create_index("timestamp")
-
         logger.info("Initialized database indexes")
 
     def clear_collections(self):
@@ -88,57 +80,34 @@ class DataSeeder:
             COLLECTION_RIDE_REQUESTS,
             COLLECTION_SURGE_HISTORY
         ]
-
         for collection in collections:
             self.db[collection].delete_many({})
-
         logger.info("Cleared all collections")
 
     def create_zones(self, city_lat: float = DEFAULT_LAT, city_lon: float = DEFAULT_LON,
                      radius_km: float = 5.0, resolution: int = H3_RESOLUTION) -> List[str]:
-        """Create zones for a city"""
         logger.info(f"Generating zones for city at ({city_lat}, {city_lon})")
-
-        # Generate H3 zones
         zone_ids = generate_zones_for_city(city_lat, city_lon, radius_km, resolution)
-
-        # Create zone documents
-        zones = []
-        for zone_id in zone_ids:
-            zone_doc = generate_zone_data(zone_id)
-            zones.append(zone_doc)
-
-        # Insert into database
+        zones = [generate_zone_data(zone_id) for zone_id in zone_ids]
         if zones:
             self.db[COLLECTION_ZONES].insert_many(zones)
-
         logger.info(f"Created {len(zones)} zones")
         return zone_ids
 
     def create_drivers(self, num_drivers: int = 10, zone_ids: List[str] = None) -> List[Dict]:
-        """Create driver documents"""
         logger.info(f"Generating {num_drivers} drivers")
-
-        # If no zones provided, fetch from database
         if not zone_ids:
             zones = list(self.db[COLLECTION_ZONES].find({}, {"zone_id": 1}))
             zone_ids = [zone["zone_id"] for zone in zones]
-
         if not zone_ids:
             logger.error("No zones available for driver creation")
             return []
-
         drivers = []
         for i in range(num_drivers):
-            # Select random zone
             zone_id = random.choice(zone_ids)
             lat, lon = h3_to_lat_lon(zone_id)
-
-            # Add some randomness to position
             lat += random.uniform(-0.001, 0.001)
             lon += random.uniform(-0.001, 0.001)
-
-            # Create driver
             driver = Driver(
                 id=f"driver_{i + 1}",
                 name=fake.name(),
@@ -149,71 +118,42 @@ class DataSeeder:
                 status=random.choice(list(DriverStatus)),
                 current_zone=zone_id
             )
-
-            # Convert to dict and add
-            drivers.append(driver.dict())
-
-        # Insert into database
+            drivers.append(driver.model_dump())
         if drivers:
             self.db[COLLECTION_DRIVERS].insert_many(drivers)
-
         logger.info(f"Created {len(drivers)} drivers")
         return drivers
 
     def create_ride_requests(self, num_requests: int = 50, zone_ids: List[str] = None,
                              days_back: int = 7) -> List[Dict]:
-        """Create historical ride requests"""
         logger.info(f"Generating {num_requests} ride requests")
-
-        # If no zones provided, fetch from database
         if not zone_ids:
             zones = list(self.db[COLLECTION_ZONES].find({}, {"zone_id": 1}))
             zone_ids = [zone["zone_id"] for zone in zones]
-
         if not zone_ids:
             logger.error("No zones available for request creation")
             return []
-
-        # Get drivers
         drivers = list(self.db[COLLECTION_DRIVERS].find({}, {"id": 1}))
         driver_ids = [driver["id"] for driver in drivers]
-
         if not driver_ids:
-            # Create some dummy driver IDs
             driver_ids = [f"driver_{i + 1}" for i in range(10)]
-
         requests = []
         for i in range(num_requests):
-            # Select random zones for pickup and dropoff
             pickup_zone = random.choice(zone_ids)
             dropoff_zone = random.choice(zone_ids)
-
-            # Generate points within the zones
             pickup_lat, pickup_lon = get_random_point_in_zone(pickup_zone)
             dropoff_lat, dropoff_lon = get_random_point_in_zone(dropoff_zone)
-
-            # Random time in the past few days
             created_at = datetime.utcnow() - timedelta(
                 days=random.uniform(0, days_back),
                 hours=random.uniform(0, 24)
             )
-
-            # Select random status, weighted towards completed
-            status_weights = [0.1, 0.1, 0.2, 0.5, 0.1]  # Pending, Accepted, In Progress, Completed, Cancelled
+            status_weights = [0.1, 0.1, 0.2, 0.5, 0.1]
             status = random.choices(
                 list(RideRequestStatus),
                 weights=status_weights
             )[0]
-
-            # Assign driver for non-pending requests
-            driver_id = None
-            if status != RideRequestStatus.PENDING:
-                driver_id = random.choice(driver_ids)
-
-            # Random fare
+            driver_id = random.choice(driver_ids) if status != RideRequestStatus.PENDING else None
             estimated_fare = random.uniform(5, 30)
-
-            # Create request
             request = RideRequest(
                 id=f"request_{i + 1}",
                 user_id=f"user_{fake.uuid4().hex[:8]}",
@@ -226,56 +166,33 @@ class DataSeeder:
                 driver_id=driver_id,
                 estimated_fare=estimated_fare
             )
-
-            # Convert to dict and add
-            request_dict = request.dict()
-            requests.append(request_dict)
-
-        # Insert into database
+            requests.append(request.model_dump())
         if requests:
             self.db[COLLECTION_RIDE_REQUESTS].insert_many(requests)
-
         logger.info(f"Created {len(requests)} ride requests")
         return requests
 
     def create_surge_history(self, num_events: int = 20, zone_ids: List[str] = None,
                              days_back: int = 7) -> List[Dict]:
-        """Create historical surge events"""
         logger.info(f"Generating {num_events} surge events")
-
-        # If no zones provided, fetch from database
         if not zone_ids:
             zones = list(self.db[COLLECTION_ZONES].find({}, {"zone_id": 1}))
             zone_ids = [zone["zone_id"] for zone in zones]
-
         if not zone_ids:
             logger.error("No zones available for surge event creation")
             return []
-
         surge_events = []
         for i in range(num_events):
-            # Select random zone
             zone_id = random.choice(zone_ids)
-
-            # Random time in the past few days
             timestamp = datetime.utcnow() - timedelta(
                 days=random.uniform(0, days_back),
                 hours=random.uniform(0, 24)
             )
-
-            # Random demand level (higher probability for moderate levels)
             demand_level = int(min(10, max(1, random.normalvariate(5, 2))))
-
-            # Surge multiplier based on demand level
-            multiplier = 1.0 + (demand_level / 10) * 2.0
-            multiplier = round(multiplier * 10) / 10  # Round to nearest 0.1
-
-            # Random active state, weighted towards inactive for older events
+            multiplier = round((1.0 + (demand_level / 10) * 2.0) * 10) / 10
             time_factor = (datetime.utcnow() - timestamp).total_seconds() / (days_back * 86400)
             active_prob = max(0.1, 1.0 - time_factor)
             active = random.random() < active_prob
-
-            # Create surge event
             event = SurgeEvent(
                 zone_id=zone_id,
                 timestamp=timestamp,
@@ -283,48 +200,27 @@ class DataSeeder:
                 multiplier=multiplier,
                 active=active
             )
-
-            # Convert to dict and add
-            surge_events.append(event.dict())
-
-        # Insert into database
+            surge_events.append(event.model_dump())
         if surge_events:
             self.db[COLLECTION_SURGE_HISTORY].insert_many(surge_events)
-
         logger.info(f"Created {len(surge_events)} surge events")
         return surge_events
 
     def seed_all(self, city_lat: float = DEFAULT_LAT, city_lon: float = DEFAULT_LON,
                  radius_km: float = 5.0, num_drivers: int = 10, num_requests: int = 50,
                  num_surge_events: int = 20, days_back: int = 7):
-        """Seed all data"""
-        # Clear existing data
         self.clear_collections()
-
-        # Initialize database
         self.init_database()
-
-        # Create zones
         zone_ids = self.create_zones(city_lat, city_lon, radius_km)
-
-        # Create drivers
         self.create_drivers(num_drivers, zone_ids)
-
-        # Create ride requests
         self.create_ride_requests(num_requests, zone_ids, days_back)
-
-        # Create surge history
         self.create_surge_history(num_surge_events, zone_ids, days_back)
-
         logger.info("Completed seeding all data")
 
 
 if __name__ == "__main__":
     seeder = DataSeeder()
-
-    # Parse command line arguments
     import argparse
-
     parser = argparse.ArgumentParser(description="Seed data for SmartZone application")
     parser.add_argument("--city-lat", type=float, default=DEFAULT_LAT, help="City center latitude")
     parser.add_argument("--city-lon", type=float, default=DEFAULT_LON, help="City center longitude")
@@ -334,9 +230,7 @@ if __name__ == "__main__":
     parser.add_argument("--surges", type=int, default=20, help="Number of surge events to create")
     parser.add_argument("--days", type=int, default=7, help="Days of historical data to generate")
     parser.add_argument("--clear", action="store_true", help="Clear collections without seeding")
-
     args = parser.parse_args()
-
     if args.clear:
         seeder.clear_collections()
     else:
