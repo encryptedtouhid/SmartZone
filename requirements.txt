@@ -8,7 +8,7 @@ joblib~=1.4.2
 scikit-learn~=1.6.1
 pydantic~=2.11.0
 motor~=3.7.0
-h3~=4.2.2
+h3==3.7.6
 geojson~=3.2.0
 shapely~=2.0.7
 python-dotenv~=1.1.0
